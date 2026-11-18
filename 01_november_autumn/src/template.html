@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>11월, 가을의 끝자락</title>
+<style>
+  @font-face{font-family:"Noto Serif KR";font-weight:700;src:url(data:font/woff2;base64,__SERIFB__) format("woff2")}
+  @font-face{font-family:"Noto Serif KR";font-weight:300;src:url(data:font/woff2;base64,__SERIFL__) format("woff2")}
+  @font-face{font-family:"Noto Sans KR";font-weight:300;src:url(data:font/woff2;base64,__SANSL__) format("woff2")}
+  html,body{margin:0;height:100%;background:#0b0705;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center;font-family:"Noto Serif KR",serif}
+  .stage{position:relative;height:100vh;max-width:100vw;aspect-ratio:9/16}
+  canvas{width:100%;height:100%;display:block}
+  .btn{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       gap:18px;background:rgba(11,7,5,.55);color:#f3e6d2;border:0;cursor:pointer;font:inherit;
+       font-size:clamp(14px,2.2vh,20px);letter-spacing:.3em;transition:opacity .4s}
+  .btn .ring{width:clamp(56px,9vh,84px);aspect-ratio:1;border:1px solid rgba(243,230,210,.6);border-radius:50%;
+       display:flex;align-items:center;justify-content:center}
+  .btn .ring::after{content:"";margin-left:6px;border-left:18px solid #e8963e;border-top:11px solid transparent;border-bottom:11px solid transparent}
+  .btn.hide{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="c" width="1080" height="1920"></canvas>
+  <button class="btn" id="play"><span class="ring"></span><span id="label">재생</span></button>
+</div>
+<audio id="bgm" preload="auto" src="data:audio/mp4;base64,__AUDIO__"></audio>
+<script>
+const W = 1080, H = 1920, DUR = 10;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const audio = document.getElementById('bgm'), btn = document.getElementById('play'), label = document.getElementById('label');
+
+const CREAM = [243,230,210], AMBER = [232,150,62], PALE = [196,210,222], DIM = [196,166,132];
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const SERIF_B = s => `700 ${s}px "Noto Serif KR"`;
+const SERIF_L = s => `300 ${s}px "Noto Serif KR"`;
+const SANS_L  = s => `300 ${s}px "Noto Sans KR"`;
+
+// ---------- easing ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const outCubic = x => 1 - (1 - x) ** 3;
+const inCubic = x => x ** 3;
+const outBack = (x, s = 1.6) => { x -= 1; return x * x * ((s + 1) * x + s) + 1; };
+const hash = k => { const v = Math.sin(k * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+
+// ---------- text ----------
+function layout(text, font, tracking = 0) {
+  ctx.font = font; let x = 0; const out = [];
+  for (const ch of text) { const a = ctx.measureText(ch).width; out.push([ch, x + a / 2]); x += a + tracking; }
+  return [out, x - tracking];
+}
+function glyph(ch, font, color, cx, cy, rot = 0, scale = 1, alpha = 1, glow = 0) {
+  if (alpha <= 0.003) return;
+  ctx.save();
+  ctx.translate(cx, cy); ctx.rotate(-rot * Math.PI / 180); ctx.scale(scale, scale);
+  ctx.globalAlpha = Math.min(1, alpha);
+  ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = rgb(color);
+  if (glow) { ctx.shadowColor = rgb(color, .85); ctx.shadowBlur = glow * 2.2; ctx.fillText(ch, 0, 0); }
+  ctx.shadowBlur = 0; ctx.fillText(ch, 0, 0);
+  ctx.restore();
+}
+
+// ---------- background ----------
+function background(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgb(22,14,11)'); g.addColorStop(1, 'rgb(52,26,14)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const gx = W * (0.30 + 0.25 * t / DUR), gy = H * 1.05, k = 0.85 + 0.15 * Math.sin(t * 1.3);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.translate(gx, gy); ctx.scale(1, 1 / 1.4);
+  const r = ctx.createRadialGradient(0, 0, 0, 0, 0, 1500);
+  for (let i = 0; i <= 10; i++) { const d = i / 10, e = Math.exp(-(((d * 1500) / 900) ** 2)) * k;
+    r.addColorStop(d, `rgba(120,58,18,${e})`); }
+  ctx.fillStyle = r; ctx.fillRect(-W * 2, -H * 2, W * 4, H * 4);
+  ctx.restore();
+}
+const GRAIN = Array.from({length: 6}, () => {
+  const c = document.createElement('canvas'); c.width = 540; c.height = 960;
+  const x = c.getContext('2d'), im = x.createImageData(540, 960);
+  for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255; im.data[i] = im.data[i+1] = im.data[i+2] = v; im.data[i+3] = 255; }
+  x.putImageData(im, 0, 0); return c;
+});
+function finishing(t) {
+  ctx.save(); ctx.globalAlpha = 0.07; ctx.globalCompositeOperation = 'overlay';
+  ctx.drawImage(GRAIN[Math.floor(t * 30) % 6], 0, 0, W, H); ctx.restore();
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.75);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  const k = (1 - prog(t, 9.6, 10)) * prog(t, 0, 0.3);
+  if (k < 1) { ctx.fillStyle = `rgba(0,0,0,${1 - k})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- leaves ----------
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const LCOL = [[196,88,44],[214,128,50],[170,62,36],[226,168,72],[140,70,38]];
+const LEAVES = Array.from({length: 30}, () => {
+  const depth = rnd(), c = LCOL[Math.floor(rnd() * 5)];
+  return { depth, size: 18 + depth * 46, color: c, dark: c.map(v => v * .7 | 0),
+    x0: -100 + rnd() * (W + 200), y0: -H + rnd() * 2 * H, vy: 40 + depth * 90, vx: -25 - depth * 30,
+    sway: 30 + rnd() * 60, sw: .6 + rnd() * .8, ph: rnd() * 6.28, rs: -90 + rnd() * 180,
+    flip: 1 + rnd() * 1.6, alpha: .35 + depth * .55 };
+});
+function leafPath(s) {
+  const p = new Path2D(), S = s * 2;
+  for (let i = 0; i <= 40; i++) { const a = i / 40 * 2 * Math.PI, rr = S * .42 * Math.abs(Math.sin(a / 2)) ** .9;
+    const x = rr * Math.sin(a) * .85, y = -rr * Math.cos(a); i ? p.lineTo(x, y) : p.moveTo(x, y); }
+  p.closePath(); return p;
+}
+LEAVES.forEach(L => L.path = leafPath(L.size));
+function drawLeaves(t, front) {
+  for (const L of LEAVES) {
+    if ((L.depth > .8) !== front) continue;
+    let wind = 0; if (t > 4.5 && t < 5.6) wind = 260 * Math.sin(prog(t, 4.5, 5.6) * Math.PI);
+    const mod = (a, m) => ((a % m) + m) % m;
+    const y = mod(L.y0 + L.vy * t, H + 300) - 150;
+    const x = mod(L.x0 + L.vx * t + L.sway * Math.sin(t * L.sw + L.ph) + wind * (.5 + L.depth), W + 300) - 150;
+    const rot = L.rs * t + 30 * Math.sin(t * L.sw + L.ph);
+    let sx = Math.cos(t * L.flip + L.ph); if (Math.abs(sx) < .12) sx = .12;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-rot * Math.PI / 180); ctx.scale(sx, 1);
+    ctx.globalAlpha = L.alpha * (L.depth < .3 ? .7 : 1);
+    ctx.fillStyle = rgb(L.color, .92); ctx.fill(L.path);
+    ctx.strokeStyle = rgb(L.dark); ctx.lineWidth = Math.max(1, L.size / 18);
+    ctx.beginPath(); ctx.moveTo(0, -L.size * .76); ctx.lineTo(0, L.size * .96); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ---------- scenes ----------
+function sceneA(t) {
+  if (t > 2.8) return;
+  const size = 300, [chars, tw] = layout('11월', SERIF_B(size), -10);
+  const x0 = W / 2 - tw / 2, cy = H / 2 - 60;
+  chars.forEach(([ch, ox], i) => {
+    const st = .15 + i * .22, p = prog(t, st, st + 1), e = outBack(p, 1.2);
+    let y = cy - (1 - e) * 620, x = x0 + ox + (1 - p) * 120 * Math.sin(p * 9 + i), rot = (1 - e) * (60 - i * 50);
+    const q = prog(t, 2.15 + i * .07, 2.7 + i * .07);
+    y -= inCubic(q) * 90; rot += q * 12 * (i - 1);
+    const a = Math.min(prog(t, st, st + .35), 1 - q), warm = ch === '월';
+    glyph(ch, SERIF_B(size), warm ? AMBER : CREAM, x, y, rot, 1, a, warm ? 10 : 0);
+  });
+  const p = outCubic(prog(t, .9, 2.4)), q = prog(t, 2.2, 2.7);
+  const [c2, tw2] = layout('NOVEMBER', SANS_L(34), 10 + 46 * p);
+  c2.forEach(([ch, ox]) => glyph(ch, SANS_L(34), DIM, W / 2 - tw2 / 2 + ox, cy + 230, 0, 1, prog(t, .9, 1.4) * (1 - q)));
+}
+function wordLine(t, text, font, x, y, start, color, glow = 0, exitT = null, exitFn = null, tracking = 0) {
+  const [chars] = layout(text, font, tracking);
+  chars.forEach(([ch, ox], i) => {
+    const st = start + i * .045, e = outCubic(prog(t, st, st + .55));
+    let cx = x + ox, cy = y + (1 - e) * 70, rot = 0, a = prog(t, st, st + .3);
+    const sc = 1 + (1 - e) * .35;
+    if (exitT !== null && t > exitT) { let a2; [cx, cy, rot, a2] = exitFn(t - exitT, i, chars.length, cx, cy); a *= a2; }
+    glyph(ch, font, color, cx, cy, rot, sc, a, glow);
+  });
+}
+function windExit(dt, i, n, cx, cy) {
+  const d = clamp((dt - (n - i) * .03) / .7), e = inCubic(d);
+  return [cx + e * 900, cy - e * 120 + Math.sin(d * 6 + i) * 30 * d, e * 140, 1 - d];
+}
+function fallExit(dt, i, n, cx, cy) {
+  const d = clamp((dt - hash(i * 31 + n) * .25) / .75), e = inCubic(d);
+  return [cx + Math.sin(d * 5 + i) * 60 * d, cy + e * 760, e * (-160 + hash(i * 7 + n) * 320), 1 - d * d];
+}
+function sceneB(t) {
+  if (!(t > 2.5 && t < 5.6)) return;
+  const lx = 120;
+  wordLine(t, '바람이', SERIF_L(110), lx, 760, 2.65, CREAM, 0, 4.55, windExit);
+  wordLine(t, '조금', SERIF_L(110), lx, 910, 2.95, CREAM, 0, 4.6, windExit);
+  wordLine(t, '차가워지고', SERIF_B(152), lx, 1090, 3.25, PALE, 0, 4.65, windExit);
+  const p = outCubic(prog(t, 3, 4)), q = inCubic(prog(t, 4.6, 5.2));
+  if (p > 0) { ctx.strokeStyle = 'rgb(150,120,95)'; ctx.lineWidth = 2; ctx.beginPath();
+    ctx.moveTo(lx + (W - 2 * lx) * q, 1200); ctx.lineTo(lx + (W - 2 * lx) * p, 1200); ctx.stroke(); }
+}
+function sceneC(t) {
+  if (!(t > 5.1 && t < 8.1)) return;
+  const rx = W - 120;
+  const right = (text, font, y, st, col, glow = 0) => {
+    const [, tw] = layout(text, font); wordLine(t, text, font, rx - tw, y, st, col, glow, 7.25, fallExit); };
+  right('마음은', SERIF_L(110), 760, 5.3, CREAM);
+  right('조금 더', SERIF_L(110), 910, 5.6, CREAM);
+  right('따뜻해지는', SERIF_B(152), 1090, 5.9, AMBER, 14);
+}
+function sceneD(t) {
+  if (t < 7.7) return;
+  const [chars, tw] = layout('가을, 그 끝자락에서', SERIF_L(78), 4);
+  const x0 = W / 2 - tw / 2, cy = H / 2 - 30, fade = 1 - prog(t, 9.4, 9.95);
+  chars.forEach(([ch, ox], i) => {
+    const st = 7.85 + i * .06, e = outCubic(prog(t, st, st + .9)), warm = '가을'.includes(ch);
+    glyph(ch, SERIF_L(78), warm ? AMBER : CREAM, x0 + ox, cy - (1 - e) * 40, (1 - e) * -8, 1, prog(t, st, st + .5) * fade, warm ? 8 : 0);
+  });
+  const p = outCubic(prog(t, 8.5, 9.3));
+  if (p > 0 && fade > 0) { ctx.strokeStyle = `rgba(150,120,95,${fade})`; ctx.lineWidth = 2; ctx.beginPath();
+    ctx.moveTo(W / 2 - 160 * p, cy + 95); ctx.lineTo(W / 2 + 160 * p, cy + 95); ctx.stroke(); }
+  const [c2, tw2] = layout('2026 · 11', SANS_L(30), 14);
+  c2.forEach(([ch, ox]) => glyph(ch, SANS_L(30), DIM, W / 2 - tw2 / 2 + ox, cy + 145, 0, 1, prog(t, 8.8, 9.3) * fade));
+}
+
+function render(t) {
+  background(t); drawLeaves(t, false);
+  sceneA(t); sceneB(t); sceneC(t); sceneD(t);
+  drawLeaves(t, true); finishing(t);
+}
+
+// ---------- playback (clock follows the music) ----------
+let playing = false, startedAt = 0;
+function now() { return playing ? (audio.duration ? audio.currentTime : (performance.now() - startedAt) / 1000) : 1.6; }
+function loop() {
+  const t = window.__T ?? Math.min(now(), DUR);
+  render(t);
+  if (playing && t >= DUR) { playing = false; label.textContent = '다시 보기'; btn.classList.remove('hide'); }
+  requestAnimationFrame(loop);
+}
+btn.addEventListener('click', () => {
+  audio.currentTime = 0; startedAt = performance.now();
+  audio.play().catch(() => {}); playing = true; btn.classList.add('hide');
+});
+audio.addEventListener('ended', () => { playing = false; label.textContent = '다시 보기'; btn.classList.remove('hide'); });
+Promise.all([SERIF_B(100), SERIF_L(100), SANS_L(100)].map(f => document.fonts.load(f, '가을11월NOVEMBER')))
+  .catch(() => {}).finally(() => requestAnimationFrame(loop));
+</script>
+</body>
+</html>
