@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>motion — 키네틱 타이포 작업</title>
+<style>
+  :root { --bg:#f4f0e8; --ink:#111; --red:#d62027; --grey:#77716a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family:"Noto Serif KR","Apple SD Gothic Neo","Malgun Gothic",serif; }
+  header { padding:56px 24px 24px; max-width:1100px; margin:0 auto; border-bottom:3px double #cfc8bb; }
+  header h1 { margin:0; font-size:clamp(32px,6vw,56px); letter-spacing:-.02em; }
+  header p { margin:10px 0 0; color:var(--grey); }
+  main { max-width:1100px; margin:0 auto; padding:8px 24px 64px; }
+  section { padding:40px 0; border-bottom:1px solid #ddd5c8; }
+  h2 { margin:0 0 6px; font-size:26px; }
+  h2 small { color:var(--red); font-size:15px; margin-left:8px; }
+  .desc { color:var(--grey); margin:0 0 24px; line-height:1.6; }
+  .grid { display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start; }
+  figure { margin:0; }
+  figcaption { font-size:14px; margin-top:8px; }
+  figcaption a { color:var(--red); }
+  video { display:block; background:#000; border-radius:6px; box-shadow:0 6px 20px rgba(0,0,0,.15); }
+  .v { width:min(320px,100%); aspect-ratio:9/16; }
+  .h { width:min(560px,100%); aspect-ratio:16/9; }
+  .tag { display:inline-block; background:var(--red); color:#fff; font-size:12px; padding:2px 8px; margin-right:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>motion</h1>
+  <p>키네틱 타이포그래피 작업 모음 · 영상, 음악, 화면 모두 코드로 생성</p>
+</header>
+<main>
+  <section>
+    <h2>조선일보 — 다음 100년을 함께 쓸 사람 <small>최종본</small></h2>
+    <p class="desc">취준생 대상 회사 소개 릴스 · 1080×1920 · 30초 · 120BPM 음악 · 조선일보명조</p>
+    <div class="grid">
+      <figure>
+        <video class="v" src="02_chosun_recruit_reels/chosun_recruit_brand_30s.mp4" controls playsinline preload="metadata"></video>
+        <figcaption><span class="tag">FINAL</span><a href="02_chosun_recruit_reels/chosun_recruit_brand_30s.mp4" download>MP4 다운로드</a></figcaption>
+      </figure>
+      <figure>
+        <video class="v" src="02_chosun_recruit_reels/drafts/chosun_reels_jobseeker_30s.mp4" controls playsinline preload="metadata"></video>
+        <figcaption>초안 · 취준생 대상 구독 홍보</figcaption>
+      </figure>
+      <figure>
+        <video class="v" src="02_chosun_recruit_reels/drafts/chosun_reels_30s.mp4" controls playsinline preload="metadata"></video>
+        <figcaption>초안 · 대학생 대상 구독 홍보</figcaption>
+      </figure>
+    </div>
+  </section>
+  <section>
+    <h2>11월, 가을의 끝자락</h2>
+    <p class="desc">바람이 조금 차가워지고, 마음은 조금 더 따뜻해지는 · 10초 · 피아노 앰비언트</p>
+    <div class="grid">
+      <figure>
+        <video class="v" src="01_november_autumn/november_reel.mp4" controls playsinline preload="metadata"></video>
+        <figcaption>릴스용 세로 · <a href="01_november_autumn/november_reel.html">HTML 재생본 열기</a></figcaption>
+      </figure>
+      <figure>
+        <video class="h" src="01_november_autumn/november_kinetic.mp4" controls playsinline preload="metadata"></video>
+        <figcaption>가로형 원본 (음악 없음)</figcaption>
+      </figure>
+    </div>
+  </section>
+</main>
+</body>
+</html>
